@@ -58,11 +58,13 @@ public class Library extends JavaPlugin {
                 }
 
                 if (args.length == 1) {
-                    if (!player.hasPermission("library.read.books")) {
+                    String bookPermission = String.format("library.%s", args[0]);
+
+                    if (!player.hasPermission("library.read.books") && !player.hasPermission(bookPermission)) {
                         sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
                         return true;
                     }
-
+                    
                     try {
                         sender.sendMessage(ChatColor.GOLD + bookDescription(args[0]));
                         sender.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read " + args[0] + " <chapter>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available chapters...\n");
@@ -81,8 +83,9 @@ public class Library extends JavaPlugin {
                     }
 
                     String chapterPermission = String.format("library.%s.%s", args[0], chapter);
+                    String bookPermission = String.format("library.%s", args[0]);
 
-                    if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter")) {
+                    if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter") || player.hasPermission(bookPermission)) {
                         ItemStack book = generateBook(args[0], chapter);
                         player.getInventory().addItem(book);
                         return true;
