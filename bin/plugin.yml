@@ -1,0 +1,12 @@
+name: Library
+version: 1.0.0
+description: A simple plugin, which allows you to easily add books into your minecraft server.
+author: Bjorn Beishline
+main: com.library.Library
+description: Gives the player a list of books to read upon typing the command "/read".
+database: false
+commands:
+   read:
+      usage: /<command>
+      description: Read any book available in the Library.
+
