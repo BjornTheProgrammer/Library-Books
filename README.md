@@ -5,6 +5,8 @@ A simple plugin, which allows you to easily add books into your Minecraft server
 # Building the Plugin
 Just run compile.sh, having the java SDK installed via the command `./compile.sh`, then grab the `Library.jar` file which is now generated in this directory, and install by adding to your server's `plugins/` folder.
 
+Alternatively, just download the latest release from the listed releases in the sidebar in GitHub.
+
 # Setup
 Once you have the plugin in your `plugins/` folder, you need to add the books, and the relevant chapters to the plugin directory.
 
