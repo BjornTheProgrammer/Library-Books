@@ -64,4 +64,10 @@ Type `/read <bookname> <chapter>` to get the Minecraft book with the chapter's t
 
 ![dc1cd44f691cfdf69f79976ee9d5b204979d15d2](https://user-images.githubusercontent.com/75190918/219434176-2bef4a3a-de0d-4852-a732-ece4cd4bc688.png)
 
-  
+# Permissions
+Three permissions come by default, and apply to all books/chapters namely
+1. library.read: Needed to use the `/read command`
+2. library.read.books: Needed to use the `/read <bookname>`
+3. library.read.books.chapter: Needed to use the `/read <bookname> <chapter>` and get book
+
+Then there are permissions which are created upon making a book. It will be in the format `library.<bookname>` to be able to read the description of the book and get all chapters of the book. Then there is the permission `library.<bookname>.<chapter>` which allows the user to only read that chapter from the book.
