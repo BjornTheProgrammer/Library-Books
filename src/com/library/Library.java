@@ -9,12 +9,37 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.ChatColor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.PluginManager;
 import java.util.*;
 import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.File;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 
 public class Library extends JavaPlugin {
+    PluginManager pluginManager;
+
+    public Library () {
+        super();
+        this.pluginManager = getServer().getPluginManager();
+        registerPermissions();
+    }
+
+    public void registerPermissions() {
+        for (String book : getBooks()) {
+            String bookPermission = String.format("library.%s", book);
+            String bookDescription = String.format("Allows the player to read the %s", book);
+            this.pluginManager.addPermission(new Permission(bookPermission, bookDescription, PermissionDefault.FALSE));
+
+            for (String chapter : getChapters(book)) {
+                String chapterPermission = String.format("library.%s.%s", book, chapter);
+                String chapterDescription = String.format("Allows the player to read the %s, chapter %s", book, chapter);
+                this.pluginManager.addPermission(new Permission(chapterPermission, chapterDescription, PermissionDefault.FALSE));
+            }
+        }
+    }
+
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (label.equalsIgnoreCase("read")) {
@@ -22,12 +47,22 @@ public class Library extends JavaPlugin {
                 Player player = (Player) sender;
 
                 if (args.length == 0) {
+                    if (!player.hasPermission("library.read")) {
+                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+                        return true;
+                    }
+
                     sender.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read <bookname>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available books...\n");
                     displayBooks(sender);
                     return true;
                 }
 
                 if (args.length == 1) {
+                    if (!player.hasPermission("library.read.books")) {
+                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+                        return true;
+                    }
+
                     try {
                         sender.sendMessage(ChatColor.GOLD + bookDescription(args[0]));
                         sender.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read " + args[0] + " <chapter>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available chapters...\n");
@@ -40,41 +75,21 @@ public class Library extends JavaPlugin {
                 }
 
                 try {
-                    ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-                    BookMeta meta = (BookMeta) book.getItemMeta();
-
                     String chapter = args[1];
                     for (int i = 2; i < args.length; i++) {
                         chapter += " " + args[i];
                     }
-                    
-                    // Set the title and author of the book
-                    String title = args[0] + " " + chapter;
-                    if (title.length() > 16) {
-                        meta.setTitle(title.substring(0, 13) + "...");
-                    } else {
-                        meta.setTitle(title);
-                    }
 
-                    String author = bookAuthor(args[0]);
-                    if (author.length() > 25) {
-                        meta.setAuthor(author.substring(0, 22) + "...");
-                    } else {
-                        meta.setAuthor(author);
-                    }
+                    String chapterPermission = String.format("library.%s.%s", args[0], chapter);
 
-                    String pageText = "";
-                    int page = 1;
-                    while ((pageText = getPage(page++, args[0], chapter)) != "") {
-                        meta.addPage(pageText);
+                    if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter")) {
+                        ItemStack book = generateBook(args[0], chapter);
+                        player.getInventory().addItem(book);
+                        return true;
+                    } else {
+                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+                        return true;
                     }
-                    if (meta.getPageCount() < 1) {
-                        throw new Exception("chapter doesn't exist");
-                    }
-                    
-                    // Set the book's metadata and give it to the player
-                    book.setItemMeta(meta);
-                    player.getInventory().addItem(book);
                 } catch (Exception e) {
                     sender.sendMessage(ChatColor.WHITE + "Book or chapter does not exist... \nType " + ChatColor.AQUA + "'/read'" + ChatColor.WHITE + " to list the books, and type the book name after to see chapter selection.");
                 }
@@ -89,26 +104,71 @@ public class Library extends JavaPlugin {
         return false;
     }
 
-    public void displayBooks(CommandSender sender) {
+    public ItemStack generateBook(String bookName, String chapter) throws Exception {
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        BookMeta meta = (BookMeta) book.getItemMeta();
+        
+        // Set the title and author of the book
+        String title = bookName + " " + chapter;
+        if (title.length() > 16) {
+            meta.setTitle(title.substring(0, 13) + "...");
+        } else {
+            meta.setTitle(title);
+        }
+
+        String author = bookAuthor(bookName);
+        if (author.length() > 25) {
+            meta.setAuthor(author.substring(0, 22) + "...");
+        } else {
+            meta.setAuthor(author);
+        }
+
+        String pageText = "";
+        int page = 1;
+        while ((pageText = getPage(page++, bookName, chapter)) != "") {
+            meta.addPage(pageText);
+        }
+        if (meta.getPageCount() < 1) {
+            throw new Exception("chapter doesn't exist");
+        }
+        
+        // Set the book's metadata and give it to the player
+        book.setItemMeta(meta);
+
+        return book;
+    }
+
+    public ArrayList<String> getBooks() {
         File folder = new File("plugins/Library/");
         File[] listOfFiles = folder.listFiles();
         Arrays.sort(listOfFiles);
-        String books = "";
+
+        ArrayList<String> BookNames = new ArrayList<String>();
 
         for (int i = 0; i < listOfFiles.length; i++) {
             if (listOfFiles[i].isDirectory()) {
-                books += listOfFiles[i].getName() + ", ";
+                BookNames.add(listOfFiles[i].getName());
             }
+        }
+
+        return BookNames;
+    }
+
+    public void displayBooks(CommandSender sender) {
+        String books = "";
+
+        for (String book : getBooks()) {
+            books += book + ", ";
         }
         books = books.substring(0, books.length() - 2);
 
         sender.sendMessage(ChatColor.AQUA + books);
     }
 
-    public void displayChapters(CommandSender sender, String book) {
+    public ArrayList<String> getChapters(String book) {
         File folder = new File("plugins/Library/" + book);
         File[] listOfFiles = folder.listFiles();
-        String chapters = "";
+        ArrayList<String> chapters = new ArrayList<String>();
 
         Arrays.sort(listOfFiles, new Comparator<File>() {
             public int compare(File f1, File f2) {
@@ -123,13 +183,23 @@ public class Library extends JavaPlugin {
         });
 
         for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile() && !listOfFiles[i].getName().equals("information.txt")) {
+            if (listOfFiles[i].isFile() && !listOfFiles[i].getName().equals("information.txt") && !listOfFiles[i].getName().equals(".DS_Store")) {
                 if (listOfFiles[i].getName().split("_", 0).length > 1) {
-                    chapters += listOfFiles[i].getName().split(".txt", 0)[0].split("_", 0)[1] + ", ";
+                    chapters.add(listOfFiles[i].getName().split(".txt", 0)[0].split("_", 0)[1]);
                 } else {
-                    chapters += listOfFiles[i].getName().split(".txt", 0)[0] + ", ";
+                    chapters.add(listOfFiles[i].getName().split(".txt", 0)[0]);
                 }
             }
+        }
+
+        return chapters;
+    }
+
+    public void displayChapters(CommandSender sender, String book) {
+        String chapters = "";
+
+        for (String chapter : getChapters(book)) {
+            chapters += chapter + ", ";
         }
 
         chapters = chapters.substring(0, chapters.length() - 2);

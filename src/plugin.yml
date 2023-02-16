@@ -9,4 +9,13 @@ commands:
    read:
       usage: /<command>
       description: Read any book available in the Library.
-
+permissions:
+   library.read:
+      description: Needed to use the /read command
+      default: true
+   library.read.books:
+      description: Needed to use the /read <bookname>
+      default: true
+   library.read.books.chapter:
+      description: Needed to use the /read <bookname> <chapter> and get book
+      default: true
