@@ -1,4 +1,4 @@
-![106531](https://user-images.githubusercontent.com/75190918/219431670-9ecdcea4-e8d8-430d-bea3-a406d3435aeb.png)
+![Book_JE2_BE2](https://user-images.githubusercontent.com/75190918/219589419-c6e1c62c-9742-4adc-a65d-72b361143a6e.png)
 # Library-Books
 A simple plugin, which allows you to easily add books into your Minecraft server.
 
