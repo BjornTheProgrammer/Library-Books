@@ -2,12 +2,12 @@
 # Library-Books
 A simple plugin, which allows you to easily add books into your Minecraft server.
 
-# Building the Plugin
+## Building the Plugin
 Just run compile.sh, having the java SDK installed via the command `./compile.sh`, then grab the `Library.jar` file which is now generated in this directory, and install by adding to your server's `plugins/` folder.
 
 Alternatively, just download the latest release from the listed releases in the sidebar in GitHub.
 
-# Setup
+## Setup
 Once you have the plugin in your `plugins/` folder, you need to add the books, and the relevant chapters to the plugin directory.
 
 Everything is dependent on file structure. Every folder under Library will be displayed as a book. Every text file under a book will be a chapter, except the information.txt file. As seen below.
@@ -51,7 +51,7 @@ Do note that the largest size of a book is 100 pages, so if you have any books t
 
 Additionally, be cognizant that too many books in one chunk can cause players in that chunk to crash (blame 2b2t for that).
 
-# Commands
+## Commands
 ![20fd2e023b12a67d50d55b4a19cee9cf52ecabb9](https://user-images.githubusercontent.com/75190918/219431708-be0811ff-4aba-44bd-9bc7-f969a4beff28.png)
 
 Type `/read` to list off books contained within the `plugins/Library` directory on your server.
@@ -64,7 +64,7 @@ Type `/read <bookname> <chapter>` to get the Minecraft book with the chapter's t
 
 ![dc1cd44f691cfdf69f79976ee9d5b204979d15d2](https://user-images.githubusercontent.com/75190918/219434176-2bef4a3a-de0d-4852-a732-ece4cd4bc688.png)
 
-# Permissions
+## Permissions
 Three permissions come by default, and apply to all books/chapters namely
 1. library.read: Needed to use the `/read command`
 2. library.read.books: Needed to use the `/read <bookname>`
