@@ -62,12 +62,20 @@ Type `/read <bookname> <chapter>` to get the Minecraft book with the chapter's t
   
   ![20fd2e023b12a67d50d55b4a19cee9cf52ecabb9](https://user-images.githubusercontent.com/75190918/219434053-73910859-ac00-4a7a-8ae9-fe6a28ccf16d.png)
 
-![dc1cd44f691cfdf69f79976ee9d5b204979d15d2](https://user-images.githubusercontent.com/75190918/219434176-2bef4a3a-de0d-4852-a732-ece4cd4bc688.png)
+Type `/library` to view an interactive inventory with every book and their information.
+
+Type `/library <bookname>` to view an interactive inventory with every chapter from the book.
+
+<img width="1440" alt="Screenshot 2023-02-21 at 5 44 41 PM" src="https://user-images.githubusercontent.com/75190918/220493808-0125653e-26cb-45d7-8745-eba2bf4b92bd.png">
+
+<img width="1440" alt="Screenshot 2023-02-21 at 5 44 58 PM" src="https://user-images.githubusercontent.com/75190918/220493839-9387a910-1c1a-43b1-bb33-c8044b52a081.png">
 
 ## Permissions
-Three permissions come by default, and apply to all books/chapters namely
+Five permissions come by default
 1. library.read: Needed to use the `/read command`
 2. library.read.books: Needed to use the `/read <bookname>`
 3. library.read.books.chapter: Needed to use the `/read <bookname> <chapter>` and get book
+4. library.library: Needed to use the `/library` command
+6. library.library.book: Needed to use the `/library <bookname>` command
 
 Then there are permissions which are created upon making a book. It will be in the format `library.<bookname>` to be able to read the description of the book and get all chapters of the book. Then there is the permission `library.<bookname>.<chapter>` which allows the user to only read that chapter from the book.
