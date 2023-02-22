@@ -72,7 +72,7 @@ Type `/library <bookname>` to view an interactive inventory with every chapter f
 
 ## Permissions
 Five permissions come by default
-1. library.read: Needed to use the `/read command`
+1. library.read: Needed to use the `/read` command
 2. library.read.books: Needed to use the `/read <bookname>`
 3. library.read.books.chapter: Needed to use the `/read <bookname> <chapter>` and get book
 4. library.library: Needed to use the `/library` command
