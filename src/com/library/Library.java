@@ -10,268 +10,418 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.ChatColor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
+import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
 import java.util.*;
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.File;
 import org.bukkit.permissions.Permission;
 import org.bukkit.permissions.PermissionDefault;
+import java.io.IOException;
+import java.lang.Math;
 
-public class Library extends JavaPlugin {
-    PluginManager pluginManager;
 
-    public Library () {
-        super();
-        this.pluginManager = getServer().getPluginManager();
-        registerPermissions();
-    }
+public class Library extends JavaPlugin implements Listener {
+	PluginManager pluginManager;
+	ItemStack prevPage;
+	ItemStack nextPage;
+	ItemStack close;
 
-    public void registerPermissions() {
-        for (String book : getBooks()) {
-            String bookPermission = String.format("library.%s", book);
-            String bookDescription = String.format("Allows the player to read the %s", book);
-            this.pluginManager.addPermission(new Permission(bookPermission, bookDescription, PermissionDefault.FALSE));
 
-            for (String chapter : getChapters(book)) {
-                String chapterPermission = String.format("library.%s.%s", book, chapter);
-                String chapterDescription = String.format("Allows the player to read the %s, chapter %s", book, chapter);
-                this.pluginManager.addPermission(new Permission(chapterPermission, chapterDescription, PermissionDefault.FALSE));
-            }
-        }
-    }
+	public Library () {
+		super();
+		this.pluginManager = getServer().getPluginManager();
+		registerPermissions();
+	}
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (label.equalsIgnoreCase("read")) {
-            if (sender instanceof Player) {
-                Player player = (Player) sender;
+	@Override
+	public void onEnable() {
+		this.pluginManager.registerEvents(this, this);
+	}
 
-                if (args.length == 0) {
-                    if (!player.hasPermission("library.read")) {
-                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
-                        return true;
-                    }
+	public ItemStack generateItem(Material mat, String name, String lore, int data) {
+		ItemStack item = new ItemStack(mat, 1);
+		ItemMeta itemMeta = item.getItemMeta();
+		itemMeta.setDisplayName(name);
+		itemMeta.setLore(Arrays.asList(lore));
+		itemMeta.setCustomModelData(data);
+		item.setItemMeta(itemMeta);
 
-                    sender.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read <bookname>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available books...\n");
-                    displayBooks(sender);
-                    return true;
-                }
+		return item;
+	}
 
-                if (args.length == 1) {
-                    String bookPermission = String.format("library.%s", args[0]);
+	public ItemStack generateItem(Material mat, String name, int data) {
+		ItemStack item = new ItemStack(mat, 1);
+		ItemMeta itemMeta = item.getItemMeta();
+		itemMeta.setDisplayName(name);
+		itemMeta.setCustomModelData(data);
+		item.setItemMeta(itemMeta);
 
-                    if (!player.hasPermission("library.read.books") && !player.hasPermission(bookPermission)) {
-                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
-                        return true;
-                    }
-                    
-                    try {
-                        sender.sendMessage(ChatColor.GOLD + bookDescription(args[0]));
-                        sender.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read " + args[0] + " <chapter>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available chapters...\n");
-                        displayChapters(sender, args[0]);
-                        return true;
-                    } catch (Exception e) {
-                        sender.sendMessage(ChatColor.WHITE + "Book does not exist... \nType " + ChatColor.AQUA + "'/read'" + ChatColor.WHITE + " to list the books.");
-                        return true;
-                    }
-                }
+		return item;
+	}
 
-                try {
-                    String chapter = args[1];
-                    for (int i = 2; i < args.length; i++) {
-                        chapter += " " + args[i];
-                    }
+	public void openMenu(Player player, int page) {
+		// Create a new inventory with 9 slots and the title "My Menu"
+		Inventory menu = Bukkit.createInventory(null, 36, "Library");
 
-                    String chapterPermission = String.format("library.%s.%s", args[0], chapter);
-                    String bookPermission = String.format("library.%s", args[0]);
+		Material prevPageMaterial = Material.BLUE_STAINED_GLASS_PANE;
+		Material nextPageMaterial = Material.BLUE_STAINED_GLASS_PANE;
 
-                    if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter") || player.hasPermission(bookPermission)) {
-                        ItemStack book = generateBook(args[0], chapter);
-                        player.getInventory().addItem(book);
-                        return true;
-                    } else {
-                        sender.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
-                        return true;
-                    }
-                } catch (Exception e) {
-                    sender.sendMessage(ChatColor.WHITE + "Book or chapter does not exist... \nType " + ChatColor.AQUA + "'/read'" + ChatColor.WHITE + " to list the books, and type the book name after to see chapter selection.");
-                }
-                
-                return true;
-            } else {
-                sender.sendMessage(ChatColor.AQUA + "This command can only be used by a player.");
-                return true;
-            }
-        }
-        
-        return false;
-    }
+		ArrayList<String> books = Book.getBooks();
 
-    public ItemStack generateBook(String bookName, String chapter) throws Exception {
-        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-        BookMeta meta = (BookMeta) book.getItemMeta();
-        
-        // Set the title and author of the book
-        String title = bookName + " " + chapter;
-        if (title.length() > 16) {
-            meta.setTitle(title.substring(0, 13) + "...");
-        } else {
-            meta.setTitle(title);
-        }
+		int booksPerPage = 19;
 
-        String author = bookAuthor(bookName);
-        if (author.length() > 25) {
-            meta.setAuthor(author.substring(0, 22) + "...");
-        } else {
-            meta.setAuthor(author);
-        }
+		int maxPages = (int) Math.ceil((double) books.size() / booksPerPage);
 
-        String pageText = "";
-        int page = 1;
-        while ((pageText = getPage(page++, bookName, chapter)) != "") {
-            meta.addPage(pageText);
-        }
-        if (meta.getPageCount() < 1) {
-            throw new Exception("chapter doesn't exist");
-        }
-        
-        // Set the book's metadata and give it to the player
-        book.setItemMeta(meta);
+		if (page <= 1) page = 1;
+		if (page >= maxPages) page = maxPages;
 
-        return book;
-    }
+		if (page <= 1) {
+			prevPageMaterial = Material.RED_STAINED_GLASS_PANE;
+		}
 
-    public ArrayList<String> getBooks() {
-        File folder = new File("plugins/Library/");
-        File[] listOfFiles = folder.listFiles();
-        Arrays.sort(listOfFiles);
+		if (page >= maxPages) {
+			nextPageMaterial = Material.RED_STAINED_GLASS_PANE;
+		}
 
-        ArrayList<String> BookNames = new ArrayList<String>();
+		for (int i = (page - 1) * booksPerPage; i < page * booksPerPage && i < books.size(); i++) {
+			int inventoryIndex = i % booksPerPage + 1;
+			if (inventoryIndex >= 8) inventoryIndex += 2;
+			if (inventoryIndex >= 17) inventoryIndex += 3;
+			try {
+				Book book = new Book(books.get(i));
+				menu.setItem(inventoryIndex, book.infoBook());
+			} catch (IOException e) {
+				ItemStack bookItem = Book.createBook(books.get(i), "None", Arrays.asList(ChatColor.RED + "Book was unable to be created!"));
+				menu.setItem(inventoryIndex, bookItem);
+			}
+		}
 
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isDirectory()) {
-                BookNames.add(listOfFiles[i].getName());
-            }
-        }
+		// Create the menu items
+		this.prevPage = generateItem(prevPageMaterial, ChatColor.GOLD + "Prev Page", ChatColor.DARK_AQUA + String.format("Page %d/%d", page, maxPages), page);
+		this.nextPage = generateItem(nextPageMaterial, ChatColor.GOLD + "Next Page", ChatColor.DARK_AQUA + String.format("Page %d/%d", page, maxPages), page);
+		this.close = generateItem(Material.BARRIER, ChatColor.RED + "Close", 0);
 
-        return BookNames;
-    }
+		// Add the items to the inventory
+		// menu.addItem(prevPage);
+		menu.setItem(27, this.prevPage);
+		menu.setItem(31, this.close);
+		menu.setItem(35, this.nextPage);
 
-    public void displayBooks(CommandSender sender) {
-        String books = "";
+		// Open the inventory for the player
+		player.openInventory(menu);
+	}
 
-        for (String book : getBooks()) {
-            books += book + ", ";
-        }
-        books = books.substring(0, books.length() - 2);
+	public void openBookMenu(Player player, Book book, int page) {
+		Inventory menu = Bukkit.createInventory(null, 36, "Library - " + book.getBookName());
 
-        sender.sendMessage(ChatColor.AQUA + books);
-    }
+		Material prevPageMaterial = Material.BLUE_STAINED_GLASS_PANE;
+		Material nextPageMaterial = Material.BLUE_STAINED_GLASS_PANE;
 
-    public ArrayList<String> getChapters(String book) {
-        File folder = new File("plugins/Library/" + book);
-        File[] listOfFiles = folder.listFiles();
-        ArrayList<String> chapters = new ArrayList<String>();
+		ArrayList<String> chapters = book.getChapters();
 
-        Arrays.sort(listOfFiles, new Comparator<File>() {
-            public int compare(File f1, File f2) {
-                try {
-                    int i1 = Integer.parseInt(f1.getName().split("_", 0)[0]);
-                    int i2 = Integer.parseInt(f2.getName().split("_", 0)[0]);
-                    return i1 - i2;
-                } catch(NumberFormatException e) {
-                    return -9999;
-                }
-            }
-        });
+		int booksPerPage = 19;
 
-        for (int i = 0; i < listOfFiles.length; i++) {
-            if (listOfFiles[i].isFile() && !listOfFiles[i].getName().equals("information.txt") && !listOfFiles[i].getName().equals(".DS_Store")) {
-                if (listOfFiles[i].getName().split("_", 0).length > 1) {
-                    chapters.add(listOfFiles[i].getName().split(".txt", 0)[0].split("_", 0)[1]);
-                } else {
-                    chapters.add(listOfFiles[i].getName().split(".txt", 0)[0]);
-                }
-            }
-        }
+		int maxPages = (int) Math.ceil((double) chapters.size() / booksPerPage);
 
-        return chapters;
-    }
+		if (page <= 1) page = 1;
+		if (page >= maxPages) page = maxPages;
 
-    public void displayChapters(CommandSender sender, String book) {
-        String chapters = "";
+		if (page <= 1) {
+			prevPageMaterial = Material.RED_STAINED_GLASS_PANE;
+		}
 
-        for (String chapter : getChapters(book)) {
-            chapters += chapter + ", ";
-        }
+		if (page >= maxPages) {
+			nextPageMaterial = Material.RED_STAINED_GLASS_PANE;
+		}
 
-        chapters = chapters.substring(0, chapters.length() - 2);
+		for (int i = (page - 1) * booksPerPage; i < page * booksPerPage && i < chapters.size(); i++) {
+			int inventoryIndex = i % booksPerPage + 1;
+			if (inventoryIndex >= 8) inventoryIndex += 2;
+			if (inventoryIndex >= 17) inventoryIndex += 3;
+			try {
+				menu.setItem(inventoryIndex, book.generateBook(chapters.get(i), false));
+			} catch (ChapterNotFoundException e) {
+				ItemStack bookItem = Book.createBook(book.getBookName() + chapters.get(i), book.getAuthor(), Arrays.asList(ChatColor.RED + "Chapter was unable to be found!"));
+				menu.setItem(inventoryIndex, bookItem);
+			}
+		}
 
-        sender.sendMessage(ChatColor.WHITE + chapters);
-    }
+		// Create the menu items
+		this.prevPage = generateItem(prevPageMaterial, ChatColor.GOLD + "Prev Page", ChatColor.DARK_AQUA + String.format("Page %d/%d", page, maxPages), page);
+		this.nextPage = generateItem(nextPageMaterial, ChatColor.GOLD + "Next Page", ChatColor.DARK_AQUA + String.format("Page %d/%d", page, maxPages), page);
+		this.close = generateItem(Material.BARRIER, ChatColor.RED + "Close", 0);
 
-    public String getPage(int pageNumber, String name, String chapter) {
-        File folder = new File("plugins/Library/" + name);
-        File[] listOfFiles = folder.listFiles();
+		// Add the items to the inventory
+		// menu.addItem(prevPage);
+		menu.setItem(27, this.prevPage);
+		menu.setItem(31, this.close);
+		menu.setItem(35, this.nextPage);
 
-        Scanner information = new Scanner("");
+		// Open the inventory for the player
+		player.openInventory(menu);
+	}
 
-        for (File file : listOfFiles) {
-            if (file.getName().split("_", 0).length > 1) {
-                if (file.getName().split(".txt", 0)[0].split("_", 0)[1].equals(chapter)) {
-                    information = readFileContents("plugins/Library/" + name + "/" + file.getName());
-                }
-            } else {
-                if (file.getName().split(".txt", 0)[0].equals(chapter)) {
-                    information = readFileContents("plugins/Library/" + name + "/" + file.getName());
-                }
-            }
-        }
+	@EventHandler
+	public void onInventoryClick(InventoryClickEvent event) {
+		if (!(event.getWhoClicked() instanceof Player)) {
+			event.getWhoClicked().sendMessage(ChatColor.AQUA + "This can only be used by a player.");
+			return;
+		}
 
-        String overflow = "";
-        int page = 1;
+		Player player = (Player) event.getWhoClicked();
 
-        while (information.hasNext() && page <= 100) {
-            String word = "";
-            String pageCharacters = overflow;
+		// String playerName = player.getName();
 
-            while (information.hasNext() && (word = information.next() + " ").length() + pageCharacters.length() < 256) {
-                pageCharacters += word;
-            }
-            overflow = word;
-            if (page == pageNumber) return pageCharacters;
-            page++;
-        }
-        return "";
-    }
+		if (event.getClickedInventory() == null) return;
 
-    public String bookAuthor(String name) {
-        Scanner information = readFileContents("plugins/Library/" + name + "/information.txt");
-        while (information.hasNext() && !information.next().equals("author:")) {
-            continue;
-        }
+		ItemStack currentItemStack = event.getCurrentItem();
 
-        return information.nextLine().substring(1);
-    }
+		if (currentItemStack == null) {
+			event.setCancelled(true);
+			return;
+		}
 
-    public String bookDescription(String name) {
-        Scanner information = readFileContents("plugins/Library/" + name + "/information.txt");
-        while (information.hasNext() && !information.next().equals("description:")) {
-            continue;
-        }
+		// Check that the clicked inventory is the one we created
+		if (event.getView().getTitle().equals("Library")) {
 
-        return information.nextLine().substring(1);
-    }
+			int page = 0;
+			String name = currentItemStack.getItemMeta().getDisplayName();
 
-    public static Scanner readFileContents(String fileName) {
-        try {
-            FileInputStream myFile = new FileInputStream(fileName);
-            Scanner myFileReader = new Scanner(myFile);
+			if (currentItemStack.getItemMeta().hasCustomModelData()) page = currentItemStack.getItemMeta().getCustomModelData();
 
-            return myFileReader;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+			// Check which item was clicked and run the appropriate command
+			if (currentItemStack.equals(this.prevPage)) {
+				openMenu(player, --page);
+			} else if (currentItemStack.equals(this.nextPage)) {
+				openMenu(player, ++page);
+			} else if (currentItemStack.equals(this.close)) {
+				player.closeInventory();
+			} else if (currentItemStack.getType() == Material.WRITTEN_BOOK) {
+				try {
+					openBookMenu(player, new Book(name), 0);
+				} catch (Exception e) {
+					player.sendMessage("Error getting the book \"" + name + "\"");
+				}
+			}
+
+			// Cancel the event to prevent the item from being moved
+			event.setCancelled(true);
+		} else if (event.getView().getTitle().contains("Library - ")) {
+			int page = 0;
+			String bookName = event.getView().getTitle().split(" - ")[1];
+			String name = currentItemStack.getItemMeta().getDisplayName();
+
+			if (currentItemStack.getItemMeta().hasCustomModelData()) page = currentItemStack.getItemMeta().getCustomModelData();
+
+			try {
+				if (currentItemStack.equals(this.prevPage)) {
+					openBookMenu(player, new Book(bookName), --page);
+				} else if (currentItemStack.equals(this.nextPage)) {
+					openBookMenu(player, new Book(bookName), ++page);
+				} else if (currentItemStack.equals(this.close)) {
+					player.closeInventory();
+				} else if (currentItemStack.getType() == Material.WRITTEN_BOOK) {
+					String chapter = name.split(bookName)[1].split(" - ")[1];
+					String bookPermission = String.format("library.%s", bookName);
+					String chapterPermission = String.format("library.%s.%s", bookName, chapter);
+
+					if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter") || player.hasPermission(bookPermission)) {
+						ItemStack book = new Book(bookName).generateBook(chapter, true);
+						player.getInventory().addItem(book);
+						player.closeInventory();
+					} else {
+						player.sendMessage(ChatColor.RED + "You do not have permission to read this book!");
+						player.closeInventory();
+					}
+				}
+			} catch (Exception e) {
+				player.sendMessage("Error getting the book \"" + name + "\"");
+			}
+
+			event.setCancelled(true);
+		}
+	}
+
+	public void registerPermissions() {
+		for (String bookName : Book.getBooks()) {
+			String bookPermission = String.format("library.%s", bookName);
+			String bookDescription = String.format("Allows the player to read the %s", bookName);
+			this.pluginManager.addPermission(new Permission(bookPermission, bookDescription, PermissionDefault.FALSE));
+
+			try {
+				ArrayList<String> chapters = new Book(bookName).getChapters();
+
+				for (String chapter : chapters) {
+					String chapterPermission = String.format("library.%s.%s", bookName, chapter);
+					String chapterDescription = String.format("Allows the player to read the %s, chapter %s", bookName, chapter);
+					this.pluginManager.addPermission(new Permission(chapterPermission, chapterDescription, PermissionDefault.FALSE));
+				}
+			} catch (Exception e) {}
+		}
+	}
+
+	@Override
+	public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+		if (!(sender instanceof Player)) {
+			sender.sendMessage(ChatColor.AQUA + "This command can only be used by a player.");
+			return true;
+		}
+
+		Player player = (Player) sender;
+
+		if (label.equalsIgnoreCase("read")) {
+			return read(player, args);
+		}
+
+		if (label.equalsIgnoreCase("library")) {
+			return library(player, args);
+		}
+		
+		return false;
+	}
+
+	public boolean library(Player player, String[] args) {
+		if (args.length <= 0) {
+			if (!player.hasPermission("library.library")) {
+				player.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+				return true;
+			}
+
+			openMenu(player, 1);
+			return true;
+		} else {
+			String bookName = String.join(" ", args);
+			String bookPermission = String.format("library.%s", bookName);
+
+			if (!player.hasPermission("library.library.book") && !player.hasPermission(bookPermission)) {
+				player.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+				return true;
+			}
+
+			try {
+				openBookMenu(player, new Book(bookName), 0);
+				return true;
+			} catch (Exception e) {
+				player.sendMessage(ChatColor.RED + "The book \"" + bookName + "\" was not found! Type '/read' to list off all the books available.");
+				return true;
+			}
+		}
+	}
+
+	public boolean read(Player player, String[] args) {
+		if (args.length == 0) {
+			if (!player.hasPermission("library.read")) {
+				player.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+				return true;
+			}
+
+			player.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read <bookname>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available books...\n");
+			displayBooks(player);
+			return true;
+		}
+
+
+		ArrayList<String> books = Book.getBooks();
+		String bookName = "";
+		int bookLength = 0;
+
+		for (String book : books) {
+			bookLength = book.split(" ").length;
+
+			String bookTitle = "";
+
+			for (int i = 0; i < bookLength && i < args.length; i++) {
+				bookTitle += args[i] + " ";
+			}
+			bookTitle = bookTitle.substring(0, bookTitle.length() - 1);
+
+			if (!bookTitle.equals(book)) continue;
+
+			bookName = bookTitle;
+
+			break;
+		}
+
+		String chapter = "";
+		if (bookLength != args.length) {
+			for (int i = bookLength; i < args.length; i++) {
+				chapter += args[i] + " ";
+			}
+
+			chapter = chapter.substring(0, chapter.length() - 1);
+		}
+
+		if (bookName.isEmpty()) {
+			player.sendMessage(ChatColor.WHITE + "Book does not exist... \nType " + ChatColor.AQUA + "'/read'" + ChatColor.WHITE + " to list the books.");
+			return true;
+		}
+
+		if (chapter.isEmpty()) {
+
+			String bookPermission = String.format("library.%s", bookName);
+
+			if (!player.hasPermission("library.read.books") && !player.hasPermission(bookPermission)) {
+				player.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+				return true;
+			}
+
+			try {
+				player.sendMessage(ChatColor.GOLD + new Book(bookName).getDescription());
+				player.sendMessage(ChatColor.WHITE + "Type " + ChatColor.AQUA + "'/read " + bookName + " <chapter>'" + ChatColor.WHITE + " to view chapters for the book.\nBelow is a list of currently available chapters...\n");
+				displayChapters(player, bookName);
+				return true;
+			} catch (Exception e) {
+				player.sendMessage(ChatColor.RED + "An error occured listing the chapters for the book " + bookName);
+				return true;
+			}
+		} else {
+			try {
+				String chapterPermission = String.format("library.%s.%s", bookName, chapter);
+				String bookPermission = String.format("library.%s", bookName);
+
+				if (player.hasPermission(chapterPermission) || player.hasPermission("library.read.books.chapter") || player.hasPermission(bookPermission)) {
+					ItemStack book = new Book(bookName).generateBook(chapter, true);
+					player.getInventory().addItem(book);
+					return true;
+				} else {
+					player.sendMessage(ChatColor.RED + "You do not have permission to use this command!");
+					return true;
+				}
+			} catch (ChapterNotFoundException e) {
+				player.sendMessage(ChatColor.RED + "The book \"" + bookName + "\" and chapter \"" + chapter + "\" was not found!");
+				return true;
+			} catch (Exception e) {
+				player.sendMessage(ChatColor.RED + "An error occured while getting the book \"" + bookName + "\" and chapter \"" + chapter + "\"");
+				return true;
+			}
+		}
+	}
+
+	public void displayBooks(Player player) {
+		String books = "";
+
+		for (String book : Book.getBooks()) {
+			books += book + ", ";
+		}
+		books = books.substring(0, books.length() - 2);
+
+		player.sendMessage(ChatColor.AQUA + books);
+	}
+
+	public void displayChapters(Player player, String book) throws IOException {
+		String chapters = "";
+
+		for (String chapter : new Book(book).getChapters()) {
+			chapters += chapter + ", ";
+		}
+
+		chapters = chapters.substring(0, chapters.length() - 2);
+
+		player.sendMessage(ChatColor.WHITE + chapters);
+	}
+
 }
-
